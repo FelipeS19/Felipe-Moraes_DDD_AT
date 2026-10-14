@@ -21,12 +21,12 @@ public class ContratoController {
     public ContratoResponse criar(@RequestHeader(value="X-Correlation-Id", required=false) String correlationId,
                                    @Valid @RequestBody CriarContratoRequest request) {
         log.info("http.contrato.criar correlationId={} clienteId={} freelancerId={} titulo={}", correlationId, request.clienteId(), request.freelancerId(), request.titulo());
-        var c = service.criar(new CriarContratoCommand(request.clienteId(), request.freelancerId(), request.titulo(), request.valor()));
+        var c = service.criar(new CriarContratoCommand(request.clienteId(), request.freelancerId(), request.titulo(), request.valor()), correlationId);
         log.info("http.contrato.criar.response correlationId={} contratoId={} status={}", correlationId, c.id(), c.status());
         return ContratoResponse.from(c);
     }
     @GetMapping("/{id}")
-    public ContratoResponse buscar(@RequestHeader(value="X-Correlation-Id", required=false) String correlationId, @PathVariable UUID id) {
+    public ContratoResponse buscar(@RequestHeader(value="X-Correlation-Id", required=false) String correlationId, @PathVariable("id") UUID id) {
         log.info("http.contrato.buscar correlationId={} contratoId={}", correlationId, id);
         return ContratoResponse.from(service.buscar(id));
     }
@@ -34,5 +34,31 @@ public class ContratoController {
     public List<ContratoResponse> listar(@RequestHeader(value="X-Correlation-Id", required=false) String correlationId) {
         log.info("http.contrato.listar correlationId={}", correlationId);
         return service.listar().stream().map(ContratoResponse::from).toList();
+    }
+    @PatchMapping("/{id}/entrega")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void registrarEntrega(@RequestHeader(value="X-Correlation-Id", required=false) String correlationId, @PathVariable("id") UUID id) {
+        log.info("http.contrato.entrega correlationId={} contratoId={}", correlationId, id);
+        service.registrarEntrega(id, correlationId);
+    }
+
+    @PatchMapping("/{id}/concluir")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void concluir(@RequestHeader(value="X-Correlation-Id", required=false) String correlationId, @PathVariable("id") UUID id) {
+        log.info("http.contrato.concluir correlationId={} contratoId={}", correlationId, id);
+        service.concluir(id, correlationId);
+    }
+
+    @PatchMapping("/{id}/cancelar")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancelar(@RequestHeader(value="X-Correlation-Id", required=false) String correlationId, @PathVariable("id") UUID id) {
+        log.info("http.contrato.cancelar correlationId={} contratoId={}", correlationId, id);
+        service.cancelar(id, correlationId);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public java.util.Map<String, String> handleNotFound(IllegalArgumentException ex) {
+        return java.util.Map.of("error", ex.getMessage());
     }
 }

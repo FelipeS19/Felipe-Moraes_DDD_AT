@@ -430,28 +430,33 @@ Auditoria Service:
 mvn -pl auditoria-service spring-boot:run
 ```
 
-## Portas
+## Portas e Serviços
 
-| Componente | Porta |
-|---|---:|
-| API Gateway | `8080` |
-| contrato-service | `8081` |
-| notificacao-service | `8082` |
-| reputacao-service | `8083` |
-| auditoria-service | `8084` |
-| Eureka Server | `8761` |
-| Kafka | `9092` |
-| Kafka UI | `8090` |
-| PostgreSQL | `5432` |
+| Componente | Porta / URL | Descrição |
+|---|---|---|
+| API Gateway | `http://localhost:8080` | Ponto de entrada HTTP unificado |
+| contrato-service | `http://localhost:8081` | Ciclo de vida de contratos |
+| notificacao-service | `http://localhost:8082` | Registro de notificações |
+| reputacao-service | `http://localhost:8083` | Reputação agregada de freelancers |
+| auditoria-service | `http://localhost:8084` | Trilha de auditoria de eventos |
+| Eureka Server | `http://localhost:8761` | Service Registry & Discovery |
+| Kafka (Broker KRaft) | `localhost:9092` | Mensageria distribuída |
+| Kafka UI | `http://localhost:8090` | Interface web para tópicos e mensagens |
+| PostgreSQL | `localhost:5432` | Bancos separados por serviço |
+| Zipkin | `http://localhost:9411` | Rastreamento distribuído de traces |
+| Elasticsearch | `http://localhost:9200` | Motor de busca e indexação de logs |
+| Logstash | `localhost:5000` (TCP) | Pipeline de ingestão e parsing de logs |
+| Kibana | `http://localhost:5601` | Interface web para pesquisa centralizada de logs |
 
-## Teste básico
+## Teste do Fluxo Completo de Ciclo de Vida
 
-Com a infraestrutura e as aplicações em execução, um contrato pode ser criado pelo Gateway:
+Com a infraestrutura (`docker compose up -d`) e as aplicações em execução:
 
+### 1. Criar Contrato (Status: ATIVO)
 ```bash
 curl -i -X POST http://localhost:8080/api/contratos \
   -H 'Content-Type: application/json' \
-  -H 'X-Correlation-Id: teste-contrato-001' \
+  -H 'X-Correlation-Id: teste-fluxo-001' \
   -d '{
     "clienteId": "11111111-1111-1111-1111-111111111111",
     "freelancerId": "22222222-2222-2222-2222-222222222222",
@@ -459,18 +464,40 @@ curl -i -X POST http://localhost:8080/api/contratos \
     "valor": 3500.00
   }'
 ```
+*Gera evento `ContratoCriado` no Kafka via Transactional Outbox.*
 
-Consulta dos contratos:
+### 2. Registrar Entrega do Trabalho (Status: ENTREGA_REGISTRADA)
+```bash
+curl -i -X PATCH http://localhost:8080/api/contratos/{id}/entrega \
+  -H 'X-Correlation-Id: teste-fluxo-002'
+```
+*Gera evento `ContratoEntregaRegistrada` no Kafka.*
+
+### 3. Concluir Contrato (Status: CONCLUIDO)
+```bash
+curl -i -X PATCH http://localhost:8080/api/contratos/{id}/concluir \
+  -H 'X-Correlation-Id: teste-fluxo-003'
+```
+*Gera evento `ContratoConcluido` no Kafka, atualizando reputação.*
+
+### 4. Consultar os Serviços Consumidores
 
 ```bash
-curl http://localhost:8080/api/contratos
+# Consultar notificações geradas:
+curl http://localhost:8080/api/notificacoes
+
+# Consultar reputação agregada do freelancer:
+curl http://localhost:8080/api/reputacoes
+
+# Consultar trilha de auditoria:
+curl http://localhost:8080/api/auditoria
 ```
 
-Consulta de um contrato específico:
+## Documentação Complementar
 
-```bash
-curl http://localhost:8080/api/contratos/{id}
-```
+* [ARQUITETURA.md](ARQUITETURA.md): Decisões de arquitetura, Outbox, Concorrência, Idempotência e Observabilidade.
+* [CONTRATOS-EVENTOS.md](CONTRATOS-EVENTOS.md): Especificação formal dos contratos de mensagens e payloads JSON.
+* [EVIDENCIAS.md](EVIDENCIAS.md): Comprovações e evidências detalhadas de execução para avaliação.
 
 ## Tecnologias
 
@@ -482,7 +509,9 @@ Spring Cloud Gateway
 Netflix Eureka
 Spring Data JPA
 PostgreSQL 16
-Apache Kafka 4
+Apache Kafka 4 (KRaft)
+ELK Stack (Elasticsearch, Logstash, Kibana)
+OpenZipkin & Micrometer Tracing (Brave)
 Docker Compose
 Maven
 ```

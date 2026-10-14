@@ -38,24 +38,68 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: "4L622nShTZaJvthnujBmGQ"
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-cluster.sh cluster-id --bootstrap-server localhost:9092 || /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
       interval: 10s
       timeout: 10s
-      retries: 15
+      retries: 10
+      start_period: 30s
     networks: [freela-net]
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: freela-kafka-ui
     depends_on:
-      kafka:
-        condition: service_healthy
+      - kafka
     ports:
       - "8090:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: freela-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:19092
+    networks: [freela-net]
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: freela-zipkin
+    ports:
+      - "9411:9411"
+    networks: [freela-net]
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+    container_name: freela-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    networks: [freela-net]
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.0
+    container_name: freela-logstash
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    ports:
+      - "5044:5044"
+      - "5000:5000"
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    depends_on:
+      - elasticsearch
+    networks: [freela-net]
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.0
+    container_name: freela-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
     networks: [freela-net]
 
 volumes:

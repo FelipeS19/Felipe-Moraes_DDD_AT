@@ -1,5 +1,8 @@
 server:
   port: 8081
+  error:
+    include-message: always
+    include-stacktrace: always
 spring:
   application:
     name: contrato-service
@@ -16,6 +19,8 @@ spring:
         format_sql: true
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    template:
+      observation-enabled: true
 management:
   endpoints:
     web:
@@ -24,6 +29,12 @@ management:
   endpoint:
     health:
       show-details: always
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
 eureka:
   client:
     service-url:

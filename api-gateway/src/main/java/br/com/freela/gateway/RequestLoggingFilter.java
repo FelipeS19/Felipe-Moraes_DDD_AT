@@ -23,6 +23,7 @@ public class RequestLoggingFilter implements GlobalFilter, Ordered {
         long inicio = System.currentTimeMillis();
 
         var request = exchange.getRequest().mutate().header("X-Correlation-Id", correlationId).build();
+        exchange.getResponse().getHeaders().add("X-Correlation-Id", correlationId);
         log.info("gateway.request.inicio correlationId={} method={} path={}", correlationId,
                 request.getMethod(), request.getURI().getPath());
 
